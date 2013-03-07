@@ -70,3 +70,18 @@ class LoggedProcess:
                 io_queue.put((name, None))
 
         return process
+
+
+def check_run(args, shell=False):
+    returncode = run(args, shell)
+    if returncode != 0:
+        raise subprocess.CalledProcessError(returncode, args)
+
+
+def run(args, shell=False):
+    logging.info(args)
+
+    logged_process = LoggedProcess(args, shell=shell)
+    process = logged_process.execute()
+
+    return process.returncode
