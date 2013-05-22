@@ -73,7 +73,11 @@ class LoggedProcess:
         except KeyboardInterrupt:
             for name in streams.keys():
                 io_queue.put((name, None))
+
+            logger.join()
             raise
+
+        logger.join()
 
         return process
 
