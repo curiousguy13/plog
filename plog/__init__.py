@@ -13,7 +13,12 @@
 # limitations under the License.
 
 import logging
-import queue
+
+try:
+    import queue
+except ImportError:
+    from Queue import queue
+
 import subprocess
 import threading
 
