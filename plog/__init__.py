@@ -111,7 +111,7 @@ class LoggedProcess:
 
         self._cleanup()
 
-        return process
+        return result
 
 
 def check_run(args, shell=False):
