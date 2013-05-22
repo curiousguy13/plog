@@ -17,7 +17,7 @@ import logging
 try:
     import queue
 except ImportError:
-    from Queue import queue
+    import Queue as queue
 
 import subprocess
 import threading
