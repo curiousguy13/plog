@@ -19,14 +19,17 @@ try:
 except ImportError:
     import Queue as queue
 
+import sys
+import time
 import subprocess
 import threading
 
 
 class LoggedProcess:
-    def __init__(self, args, shell=False):
+    def __init__(self, args, watch_log=None, shell=False):
         self._args = args
         self._shell = shell
+        self._watch_log = watch_log
 
     def _stream_watcher(self, io_queue, name, stream):
         for line in iter(stream.readline, b""):
@@ -48,7 +51,29 @@ class LoggedProcess:
             else:
                 logging.info(line.decode("utf-8")[:-1])
 
+    def _cleanup(self):
+        self._logger.join()
+        self._logger = None
+
+        if self._log_file:
+            self._log_file.close()
+        self._log_file = None
+
+    def _read_log(self):
+        if self._log_file:
+            data = self._log_file.read(8192)
+            if data:
+                sys.stdout.write(data)
+                return True
+            else:
+                return False
+
     def execute(self):
+        if self._watch_log:
+            self._log_file = open(self._watch_log)
+        else:
+            self._log_file = None
+
         process = subprocess.Popen(self._args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
@@ -64,20 +89,27 @@ class LoggedProcess:
                                        args=(io_queue, name, stream))
             watcher.start()
 
-        logger = threading.Thread(target=self._queue_logger,
-                                  args=(io_queue, list(streams.keys())))
-        logger.start()
+        self._logger = threading.Thread(target=self._queue_logger,
+                                        args=(io_queue, list(streams.keys())))
+        self._logger.start()
 
         try:
-            process.wait()
+            result = None
+            while result is None:
+                result = process.poll()
+                self._read_log()
+                time.sleep(0.1)
         except KeyboardInterrupt:
             for name in streams.keys():
                 io_queue.put((name, None))
-
-            logger.join()
+            self._cleanup()
             raise
 
-        logger.join()
+        while True:
+            if not self._read_log():
+                break
+
+        self._cleanup()
 
         return process
 
