@@ -30,6 +30,7 @@ class LoggedProcess:
         self._args = args
         self._shell = shell
         self._watch_log = watch_log
+        self._log_file = None
 
     def _stream_watcher(self, io_queue, name, stream):
         for line in iter(stream.readline, b""):
@@ -60,6 +61,15 @@ class LoggedProcess:
         self._log_file = None
 
     def _read_log(self):
+        if self._watch_log is None:
+            return
+
+        if self._log_file is None:
+            try:
+                self._log_file = open(self._watch_log)
+            except IOError:
+                pass
+
         if self._log_file:
             data = self._log_file.read(8192)
             if data:
@@ -69,11 +79,6 @@ class LoggedProcess:
                 return False
 
     def execute(self):
-        if self._watch_log:
-            self._log_file = open(self._watch_log)
-        else:
-            self._log_file = None
-
         process = subprocess.Popen(self._args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
