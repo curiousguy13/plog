@@ -82,6 +82,7 @@ class LoggedProcess:
         process = subprocess.Popen(self._args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
+                                   universal_newlines=True,
                                    shell=self._shell)
 
         io_queue = queue.Queue()
