@@ -31,24 +31,26 @@ class LoggedProcess:
         self._shell = shell
         self._watch_log = watch_log
         self._log_file = None
+        self._io_queue = queue.Queue()
 
-    def _stream_watcher(self, io_queue, name, stream):
+    def _stream_watcher(self, name, stream):
         for line in iter(stream.readline, b""):
-            io_queue.put((name, line))
+            self._io_queue.put((name, line))
 
         stream.close()
 
-        io_queue.put((name, None))
+        self._io_queue.put((name, None))
 
-    def _queue_logger(self, io_queue, stream_names):
-        while len(stream_names) > 0:
+    def _queue_logger(self):
+        streams = ["stdout", "stderr"]
+        while len(streams) > 0:
             try:
-                name, line = io_queue.get(True, 1)
+                name, line = self._io_queue.get(True, 1)
             except queue.Empty:
                 continue
 
             if line is None:
-                stream_names.remove(name)
+                streams.remove(name)
             else:
                 logging.info(line.decode("utf-8")[:-1])
 
@@ -85,18 +87,15 @@ class LoggedProcess:
                                    universal_newlines=True,
                                    shell=self._shell)
 
-        io_queue = queue.Queue()
+        watcher = threading.Thread(target=self._stream_watcher,
+                                   args=("stdout", process.stdout))
+        watcher.start()
 
-        streams = {"stdout": process.stdout,
-                   "stderr": process.stderr}
+        watcher = threading.Thread(target=self._stream_watcher,
+                                   args=("stderr", process.stderr))
+        watcher.start()
 
-        for name, stream in streams.items():
-            watcher = threading.Thread(target=self._stream_watcher,
-                                       args=(io_queue, name, stream))
-            watcher.start()
-
-        self._logger = threading.Thread(target=self._queue_logger,
-                                        args=(io_queue, list(streams.keys())))
+        self._logger = threading.Thread(target=self._queue_logger)
         self._logger.start()
 
         try:
@@ -106,8 +105,8 @@ class LoggedProcess:
                 self._read_log()
                 time.sleep(0.1)
         except KeyboardInterrupt:
-            for name in streams.keys():
-                io_queue.put((name, None))
+            for name in "stdout", "stderr":
+                self._io_queue.put((name, None))
             self._cleanup()
             raise
 
