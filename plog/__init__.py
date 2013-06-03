@@ -19,10 +19,14 @@ try:
 except ImportError:
     import Queue as queue
 
+import collections
 import sys
 import time
 import subprocess
 import threading
+
+
+_BUFFER_SIZE = 500
 
 
 class LoggedProcess:
@@ -32,6 +36,7 @@ class LoggedProcess:
         self._watch_log = watch_log
         self._log_file = None
         self._io_queue = queue.Queue()
+        self._buffer_queue = collections.deque()
 
     def _stream_watcher(self, name, stream):
         for line in iter(stream.readline, b""):
@@ -52,7 +57,13 @@ class LoggedProcess:
             if line is None:
                 streams.remove(name)
             else:
-                logging.info(line.decode("utf-8")[:-1])
+                decoded_line = line.decode("utf-8")
+
+                logging.info(decoded_line[:-1])
+
+                self._buffer_queue.append(decoded_line)
+                if len(self._buffer_queue) > _BUFFER_SIZE:
+                    self._buffer_queue.popleft()
 
     def _cleanup(self):
         self._logger.join()
@@ -81,6 +92,13 @@ class LoggedProcess:
                 return False
 
     def execute(self):
+        if isinstance(self._args, basestring):
+            command = self._args
+        else:
+            command = " ".join(self._args)
+
+        logging.info("Running: %s" % command)
+
         process = subprocess.Popen(self._args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
@@ -116,6 +134,11 @@ class LoggedProcess:
 
         self._cleanup()
 
+        if result != 0:
+            sys.stderr.write("\nCommand failed: %s\n\n" % command)
+            for line in self._buffer_queue:
+                sys.stderr.write(line)
+
         return result
 
 
@@ -126,8 +149,6 @@ def check_run(args, shell=False):
 
 
 def run(args, shell=False):
-    logging.info(args)
-
     logged_process = LoggedProcess(args, shell=shell)
     process = logged_process.execute()
 
