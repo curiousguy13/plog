@@ -41,10 +41,12 @@ class LoggedProcess:
         stream.close()
 
         self._io_queue.put((name, None))
-        self._open_streams.remove(name)
+
+        if name in self._open_streams:
+            self._open_streams.remove(name)
 
     def _queue_logger(self):
-        streams = ["stdout", "stderr"]
+        streams = self._open_streams
         while len(streams) > 0:
             try:
                 name, line = self._io_queue.get(True, 1)
@@ -52,7 +54,8 @@ class LoggedProcess:
                 continue
 
             if line is None:
-                streams.remove(name)
+                if name in streams:
+                    streams.remove(name)
             else:
                 decoded_line = line.decode("utf-8")
 
