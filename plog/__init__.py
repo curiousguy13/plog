@@ -14,11 +14,7 @@
 
 import logging
 
-try:
-    import queue
-except ImportError:
-    import Queue as queue
-
+import Queue as queue
 import collections
 import sys
 import time
@@ -30,13 +26,13 @@ _BUFFER_SIZE = 500
 
 
 class LoggedProcess:
-    def __init__(self, args, watch_log=None, shell=False):
+    def __init__(self, args, shell=False):
         self._args = args
         self._shell = shell
-        self._watch_log = watch_log
         self._log_file = None
         self._io_queue = queue.Queue()
         self._buffer_queue = collections.deque()
+        self._open_streams = []
 
     def _stream_watcher(self, name, stream):
         for line in iter(stream.readline, b""):
@@ -45,6 +41,7 @@ class LoggedProcess:
         stream.close()
 
         self._io_queue.put((name, None))
+        self._open_streams.remove(name)
 
     def _queue_logger(self):
         streams = ["stdout", "stderr"]
@@ -66,6 +63,9 @@ class LoggedProcess:
                     self._buffer_queue.popleft()
 
     def _cleanup(self):
+        for name in self._open_streams:
+            self._io_queue.put((name, None))
+
         self._logger.join()
         self._logger = None
 
@@ -73,13 +73,10 @@ class LoggedProcess:
             self._log_file.close()
         self._log_file = None
 
-    def _read_log(self):
-        if self._watch_log is None:
-            return
-
+    def _read_log(self, watch_log):
         if self._log_file is None:
             try:
-                self._log_file = open(self._watch_log)
+                self._log_file = open(watch_log)
             except IOError:
                 pass
 
@@ -93,63 +90,57 @@ class LoggedProcess:
 
     def execute(self):
         if isinstance(self._args, basestring):
-            command = self._args
+            self._command = self._args
         else:
-            command = " ".join(self._args)
+            self._command = " ".join(self._args)
 
-        logging.info("Running: %s" % command)
+        logging.info("Running: %s" % self._command)
 
-        process = subprocess.Popen(self._args,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE,
-                                   universal_newlines=True,
-                                   shell=self._shell)
+        self._process = subprocess.Popen(self._args,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE,
+                                         universal_newlines=True,
+                                         shell=self._shell)
 
         watcher = threading.Thread(target=self._stream_watcher,
-                                   args=("stdout", process.stdout))
+                                   args=("stdout", self._process.stdout))
         watcher.start()
 
         watcher = threading.Thread(target=self._stream_watcher,
-                                   args=("stderr", process.stderr))
+                                   args=("stderr", self._process.stderr))
         watcher.start()
 
         self._logger = threading.Thread(target=self._queue_logger)
         self._logger.start()
 
+        self._open_streams = ["stdout", "stderr"]
+
+    def terminate(self):
+        self._process.terminate()
+        self._cleanup()
+
+    def wait(self, watch_log=None, print_error=True):
         try:
             result = None
             while result is None:
-                result = process.poll()
-                self._read_log()
+                result = self._process.poll()
+                if watch_log is not None:
+                    self._read_log()
                 time.sleep(0.1)
         except KeyboardInterrupt:
-            for name in "stdout", "stderr":
-                self._io_queue.put((name, None))
             self._cleanup()
             raise
 
-        while True:
-            if not self._read_log():
-                break
+        if watch_log:
+            while True:
+                if not self._read_log():
+                    break
 
         self._cleanup()
 
-        if result != 0:
-            sys.stderr.write("\nCommand failed: %s\n\n" % command)
+        if print_error and result != 0:
+            sys.stderr.write("\nCommand failed: %s\n\n" % self._command)
             for line in self._buffer_queue:
                 sys.stderr.write(line)
 
         return result
-
-
-def check_run(args, shell=False):
-    returncode = run(args, shell)
-    if returncode != 0:
-        raise subprocess.CalledProcessError(returncode, args)
-
-
-def run(args, shell=False):
-    logged_process = LoggedProcess(args, shell=shell)
-    process = logged_process.execute()
-
-    return process.returncode
