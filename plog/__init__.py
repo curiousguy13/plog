@@ -32,7 +32,7 @@ class LoggedProcess:
         self._log_file = None
         self._io_queue = queue.Queue()
         self._buffer_queue = collections.deque()
-        self._open_streams = []
+        self._streams = ["stdout", "stderr"]
 
     def _stream_watcher(self, name, stream):
         for line in iter(stream.readline, b""):
@@ -42,11 +42,8 @@ class LoggedProcess:
 
         self._io_queue.put((name, None))
 
-        if name in self._open_streams:
-            self._open_streams.remove(name)
-
     def _queue_logger(self):
-        streams = self._open_streams
+        streams = self._streams[:]
         while len(streams) > 0:
             try:
                 name, line = self._io_queue.get(True, 1)
@@ -66,7 +63,7 @@ class LoggedProcess:
                     self._buffer_queue.popleft()
 
     def _cleanup(self):
-        for name in self._open_streams:
+        for name in self._streams:
             self._io_queue.put((name, None))
 
         self._logger.join()
@@ -115,8 +112,6 @@ class LoggedProcess:
 
         self._logger = threading.Thread(target=self._queue_logger)
         self._logger.start()
-
-        self._open_streams = ["stdout", "stderr"]
 
     def terminate(self):
         self._process.terminate()
