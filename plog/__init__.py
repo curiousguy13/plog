@@ -123,7 +123,7 @@ class LoggedProcess:
             while result is None:
                 result = self._process.poll()
                 if watch_log is not None:
-                    self._read_log()
+                    self._read_log(watch_log)
                 time.sleep(0.1)
         except KeyboardInterrupt:
             self._cleanup()
@@ -131,7 +131,7 @@ class LoggedProcess:
 
         if watch_log:
             while True:
-                if not self._read_log():
+                if not self._read_log(watch_log):
                     break
 
         self._cleanup()

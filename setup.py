@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(name="plog",
       packages=["plog"],
-      version="0.13",
+      version="0.14",
       description="Logged process",
       author="Daniel Narvaez",
       author_email="dwnarvaez@gmail.com",
