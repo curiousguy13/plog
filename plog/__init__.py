@@ -54,11 +54,9 @@ class LoggedProcess:
                 if name in streams:
                     streams.remove(name)
             else:
-                decoded_line = line.decode("utf-8")
+                logging.info(line[:-1])
 
-                logging.info(decoded_line[:-1])
-
-                self._buffer_queue.append(decoded_line)
+                self._buffer_queue.append(line)
                 if len(self._buffer_queue) > _BUFFER_SIZE:
                     self._buffer_queue.popleft()
 
