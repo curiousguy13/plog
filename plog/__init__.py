@@ -22,7 +22,7 @@ import subprocess
 import threading
 
 
-_BUFFER_SIZE = 500
+_BUFFER_SIZE = 200
 
 
 class LoggedProcess:
