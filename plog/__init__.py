@@ -14,7 +14,7 @@
 
 import logging
 
-import Queue as queue
+import queue
 import collections
 import sys
 import time
@@ -35,7 +35,7 @@ class LoggedProcess:
         self._streams = ["stdout", "stderr"]
 
     def _stream_watcher(self, name, stream):
-        for line in iter(stream.readline, b""):
+        for line in iter(stream.readline, ""):
             self._io_queue.put((name, line))
 
         stream.close()
@@ -87,7 +87,7 @@ class LoggedProcess:
                 return False
 
     def execute(self):
-        if isinstance(self._args, basestring):
+        if isinstance(self._args,str):
             self._command = self._args
         else:
             self._command = " ".join(self._args)
