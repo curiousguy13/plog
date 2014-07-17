@@ -35,7 +35,7 @@ class LoggedProcess:
         self._streams = ["stdout", "stderr"]
 
     def _stream_watcher(self, name, stream):
-        for line in iter(stream.readline, ""):
+        for line in iter(stream.readline, b""):
             self._io_queue.put((name, line))
 
         stream.close()
@@ -43,6 +43,7 @@ class LoggedProcess:
         self._io_queue.put((name, None))
 
     def _queue_logger(self):
+        print("%poop:plog/__init__.py/queue_logger1%")
         streams = self._streams[:]
         while len(streams) > 0:
             try:
@@ -61,14 +62,17 @@ class LoggedProcess:
                     self._buffer_queue.popleft()
 
     def _cleanup(self):
+        print("%poop:plog/__init__.py/cleanup1%")
         for name in self._streams:
             self._io_queue.put((name, None))
-
-        self._logger.join()
+        print("%poop:plog/__init__.py/cleanup2%")
+        #self._logger.join()
+        print("%poop:plog/__init__.py/cleanup3%")
         self._logger = None
-
+        print("%poop:plog/__init__.py/cleanup4%")
         if self._log_file:
             self._log_file.close()
+        print("%poop:plog/__init__.py/cleanup5%")
         self._log_file = None
 
     def _read_log(self, watch_log):
@@ -116,24 +120,29 @@ class LoggedProcess:
         self._cleanup()
 
     def wait(self, watch_log=None, print_error=True):
+        print("%poop:plog/__init__.py/wait1%")
         try:
             result = None
+            print("%poop:plog/__init__.py/wait2%")
             while result is None:
                 result = self._process.poll()
                 if watch_log is not None:
                     self._read_log(watch_log)
                 time.sleep(0.1)
+            print("%poop:plog/__init__.py/wait3%")
         except KeyboardInterrupt:
             self._cleanup()
             raise
-
+        print("%poop:plog/__init__.py/wait4%")
         if watch_log:
+            print("%poop:plog/__init__.py/wait5%")
             while True:
                 if not self._read_log(watch_log):
                     break
-
+            print("%poop:plog/__init__.py/wait6%")
+        print("%poop:plog/__init__.py/wait7%")
         self._cleanup()
-
+        print("%poop:plog/__init__.py/wait8%")
         if print_error and result != 0:
             sys.stderr.write("\nCommand failed: %s\n\n" % self._command)
             for line in self._buffer_queue:
