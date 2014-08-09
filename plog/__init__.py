@@ -14,10 +14,7 @@
 
 import logging
 
-try:	
-    import Queue as queue
-except:
-    import queue
+import Queue as queue
 import collections
 import sys
 import time
@@ -90,7 +87,7 @@ class LoggedProcess:
                 return False
 
     def execute(self):
-        if isinstance(self._args, str):
+        if isinstance(self._args, basestring):
             self._command = self._args
         else:
             self._command = " ".join(self._args)
