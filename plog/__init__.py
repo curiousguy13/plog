@@ -38,7 +38,7 @@ class LoggedProcess:
         self._streams = ["stdout", "stderr"]
 
     def _stream_watcher(self, name, stream):
-        for line in iter(stream.readline, b""):
+        for line in iter(stream.readline, ""):
             self._io_queue.put((name, line))
 
         stream.close()
@@ -64,10 +64,11 @@ class LoggedProcess:
                     self._buffer_queue.popleft()
 
     def _cleanup(self):
+        logging.info("#poop:plog/__init.py:_cleanup1")
         for name in self._streams:
             self._io_queue.put((name, None))
-
-        self._logger.join()
+        logging.info("#poop:plog/__init.py:_cleanup2")
+        #self._logger.join()
         self._logger = None
 
         if self._log_file:
@@ -119,22 +120,29 @@ class LoggedProcess:
         self._cleanup()
 
     def wait(self, watch_log=None, print_error=True):
+        logging.info("#poop:plog/__init.py:wait1")
         try:
             result = None
             while result is None:
+                logging.info("#poop:plog/__init.py:wait2")
                 result = self._process.poll()
+                logging.info("#poop:plog/__init.py:wait2a")
                 if watch_log is not None:
+                    logging.info("#poop:plog/__init.py:wait3")
                     self._read_log(watch_log)
                 time.sleep(0.1)
+                logging.info("#poop:plog/__init.py:wait4")
         except KeyboardInterrupt:
             self._cleanup()
             raise
-
+        logging.info("#poop:plog/__init.py:wait5")
         if watch_log:
+            logging.info("#poop:plog/__init.py:wait6")
             while True:
+                logging.info("#poop:plog/__init.py:wait7")
                 if not self._read_log(watch_log):
                     break
-
+        logging.info("#poop:plog/__init.py:wait8")
         self._cleanup()
 
         if print_error and result != 0:
